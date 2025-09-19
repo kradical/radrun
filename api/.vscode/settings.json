@@ -1,0 +1,8 @@
+{
+  "editor.rulers": [80, 100],
+  "editor.gotoLocation.multipleDefinitions": "goto",
+  "editor.formatOnSave": true,
+  "files.trimFinalNewlines": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true
+}
