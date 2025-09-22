@@ -1,7 +1,7 @@
 use sqlx::{Pool, Postgres, types::time::OffsetDateTime};
 use std::error::Error;
 
-#[derive(sqlx::FromRow, Debug)]
+#[derive(sqlx::FromRow)]
 pub struct AccountRow {
     pub id: i64,
     pub first_name: String,

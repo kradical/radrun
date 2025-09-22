@@ -2,9 +2,9 @@ use std::{error::Error, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path, State},
     http::StatusCode,
-    routing::{get, post},
+    routing::{delete, get, post, put},
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,39 +19,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let account_store = PsqlAccountStore::new(pool);
 
-    // INSERT
-    let new_acc = InsertAccount {
-        first_name: "bloop".to_string(),
-        last_name: "bloop".to_string(),
-        email: "bloop2@bloop.bloop".to_string(),
-        password_hash: "thisisahash".to_string(),
-    };
-    let created = account_store.create(new_acc).await?;
-    println!("created: {:?}", created);
-
-    // READ
-    let gotten = account_store.get(created.id).await?;
-    println!("read: {:?}", gotten);
-
-    // UPDATE
-    let updates = UpdateAccount {
-        first_name: "BLOOP2".to_string(),
-        last_name: "BLOOP2".to_string(),
-    };
-    let updated = account_store.update(created.id, updates).await?;
-    println!("updated: {:?}", updated);
-
-    // LIST
-    let listed = account_store.list().await?;
-    println!("listed: {:?}", listed);
-
-    for account in listed {
-        account_store.delete(account.id).await?;
-    }
-
     let app = Router::new()
         .route("/", get(|| async { "Health Check" }))
         .route("/account", post(create_account))
+        .route("/account", get(list_accounts))
+        .route("/account/{id}", get(get_account))
+        .route("/account/{id}", put(update_account))
+        .route("/account/{id}", delete(delete_account))
         .with_state(AppState {
             account_store: Arc::new(account_store),
         });
@@ -77,41 +51,123 @@ struct CreateAccountReq {
     password: String,
 }
 
+impl CreateAccountReq {
+    fn to(&self) -> InsertAccount {
+        InsertAccount {
+            email: self.email.clone(),
+            first_name: self.first_name.clone(),
+            last_name: self.last_name.clone(),
+            password_hash: self.password.clone(),
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct UpdateAccountReq {
+    first_name: String,
+    last_name: String,
+}
+
+impl UpdateAccountReq {
+    fn to(&self) -> UpdateAccount {
+        UpdateAccount {
+            first_name: self.first_name.clone(),
+            last_name: self.last_name.clone(),
+        }
+    }
+}
+
 #[derive(Serialize)]
-struct CreateAccountRes {
+struct AccountRes {
     id: i64,
     first_name: String,
     last_name: String,
     email: String,
 }
 
-impl CreateAccountRes {
-    fn from(row: AccountRow) -> Self {
-        CreateAccountRes {
+impl AccountRes {
+    fn from(row: &AccountRow) -> Self {
+        AccountRes {
             id: row.id,
-            first_name: row.first_name,
-            last_name: row.last_name,
-            email: row.email,
+            first_name: row.first_name.clone(),
+            last_name: row.last_name.clone(),
+            email: row.email.clone(),
         }
+    }
+}
+
+#[derive(Serialize)]
+struct AccountsRes {
+    data: Vec<AccountRes>,
+}
+
+impl AccountsRes {
+    fn from(rows: &Vec<AccountRow>) -> Self {
+        let data = rows.iter().map(AccountRes::from).collect();
+
+        AccountsRes { data }
     }
 }
 
 async fn create_account(
     State(state): State<AppState>,
-    Json(payload): Json<CreateAccountReq>,
-) -> Result<Json<CreateAccountRes>, StatusCode> {
-    let insert_row = InsertAccount {
-        email: payload.email,
-        first_name: payload.first_name,
-        last_name: payload.last_name,
-        password_hash: payload.password,
-    };
-
+    Json(req): Json<CreateAccountReq>,
+) -> Result<Json<AccountRes>, StatusCode> {
     state
         .account_store
-        .create(insert_row)
+        .create(req.to())
         .await
-        .map(CreateAccountRes::from)
+        .map(|row: AccountRow| AccountRes::from(&row))
+        .map(axum::Json)
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+async fn get_account(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<AccountRes>, StatusCode> {
+    state
+        .account_store
+        .get(id)
+        .await
+        .map(|row: AccountRow| AccountRes::from(&row))
+        .map(axum::Json)
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+async fn delete_account(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+) -> Result<Json<AccountRes>, StatusCode> {
+    state
+        .account_store
+        .delete(id)
+        .await
+        .map(|row: AccountRow| AccountRes::from(&row))
+        .map(axum::Json)
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+async fn update_account(
+    State(state): State<AppState>,
+    Path(id): Path<i64>,
+    Json(req): Json<UpdateAccountReq>,
+) -> Result<Json<AccountRes>, StatusCode> {
+    state
+        .account_store
+        .update(id, req.to())
+        .await
+        .map(|row: AccountRow| AccountRes::from(&row))
+        .map(axum::Json)
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+async fn list_accounts(State(state): State<AppState>) -> Result<Json<AccountsRes>, StatusCode> {
+    state
+        .account_store
+        .list()
+        .await
+        .map(|rows: Vec<AccountRow>| AccountsRes::from(&rows))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
