@@ -27,14 +27,6 @@ pub struct UpdateAccount {
     pub last_name: String,
 }
 
-pub trait AccountStore {
-    async fn create(&self, params: InsertAccount) -> Result<AccountRow, Box<dyn Error>>;
-    async fn update(&self, id: i64, params: UpdateAccount) -> Result<AccountRow, Box<dyn Error>>;
-    async fn delete(&self, id: i64) -> Result<AccountRow, Box<dyn Error>>;
-    async fn get(&self, id: i64) -> Result<AccountRow, Box<dyn Error>>;
-    async fn list(&self) -> Result<Vec<AccountRow>, Box<dyn Error>>;
-}
-
 pub struct PsqlAccountStore {
     db: Pool<Postgres>,
 }
@@ -45,8 +37,8 @@ impl PsqlAccountStore {
     }
 }
 
-impl AccountStore for PsqlAccountStore {
-    async fn create(&self, params: InsertAccount) -> Result<AccountRow, Box<dyn Error>> {
+impl PsqlAccountStore {
+    pub async fn create(&self, params: InsertAccount) -> Result<AccountRow, Box<dyn Error>> {
         Ok(sqlx::query_as!(
             AccountRow,
             "
@@ -65,7 +57,11 @@ impl AccountStore for PsqlAccountStore {
         .await?)
     }
 
-    async fn update(&self, id: i64, params: UpdateAccount) -> Result<AccountRow, Box<dyn Error>> {
+    pub async fn update(
+        &self,
+        id: i64,
+        params: UpdateAccount,
+    ) -> Result<AccountRow, Box<dyn Error>> {
         Ok(sqlx::query_as!(
             AccountRow,
             "UPDATE account
@@ -80,7 +76,7 @@ impl AccountStore for PsqlAccountStore {
         .await?)
     }
 
-    async fn delete(&self, id: i64) -> Result<AccountRow, Box<dyn Error>> {
+    pub async fn delete(&self, id: i64) -> Result<AccountRow, Box<dyn Error>> {
         Ok(sqlx::query_as!(
             AccountRow,
             "DELETE FROM account
@@ -92,7 +88,7 @@ impl AccountStore for PsqlAccountStore {
         .await?)
     }
 
-    async fn get(&self, id: i64) -> Result<AccountRow, Box<dyn Error>> {
+    pub async fn get(&self, id: i64) -> Result<AccountRow, Box<dyn Error>> {
         Ok(
             sqlx::query_as!(AccountRow, "SELECT * FROM account WHERE id = $1", id)
                 .fetch_one(&self.db)
@@ -100,7 +96,7 @@ impl AccountStore for PsqlAccountStore {
         )
     }
 
-    async fn list(&self) -> Result<Vec<AccountRow>, Box<dyn Error>> {
+    pub async fn list(&self) -> Result<Vec<AccountRow>, Box<dyn Error>> {
         Ok(sqlx::query_as!(AccountRow, "SELECT * FROM account")
             .fetch_all(&self.db)
             .await?)
