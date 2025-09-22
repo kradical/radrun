@@ -1,5 +1,7 @@
 use std::error::Error;
 
+use axum::{Router, routing::get};
+
 use crate::account_store::{AccountStore, PsqlAccountStore};
 
 mod account_store;
@@ -40,6 +42,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for account in listed {
         account_store.delete(account.id).await?;
     }
+
+    let app = Router::new().route("/", get(|| async { "Health Check" }));
+
+    let address = "0.0.0.0:3000";
+    let listener = tokio::net::TcpListener::bind(address).await?;
+
+    axum::serve(listener, app).await?;
 
     Ok(())
 }
