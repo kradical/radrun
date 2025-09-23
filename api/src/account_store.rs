@@ -1,4 +1,5 @@
-use sqlx::{Pool, Postgres, types::time::OffsetDateTime};
+use chrono::{DateTime, Utc};
+use sqlx::{Pool, Postgres};
 use std::error::Error;
 
 #[derive(sqlx::FromRow)]
@@ -10,9 +11,8 @@ pub struct AccountRow {
     // TODO: do the hashing
     pub password_hash: String,
 
-    // TODO: Use chrono... or this fine??
-    pub created_at: OffsetDateTime,
-    pub updated_at: OffsetDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 pub struct InsertAccount {
@@ -65,7 +65,7 @@ impl PsqlAccountStore {
         Ok(sqlx::query_as!(
             AccountRow,
             "UPDATE account
-            SET first_name = $2, last_name = $3
+            SET first_name = $2, last_name = $3, updated_at = NOW()
             WHERE id = $1
             RETURNING *",
             id,

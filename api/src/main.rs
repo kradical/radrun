@@ -6,6 +6,7 @@ use axum::{
     http::StatusCode,
     routing::{delete, get, post, put},
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::account_store::{AccountRow, InsertAccount, PsqlAccountStore, UpdateAccount};
@@ -83,6 +84,8 @@ struct AccountRes {
     first_name: String,
     last_name: String,
     email: String,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
 }
 
 impl AccountRes {
@@ -92,6 +95,8 @@ impl AccountRes {
             first_name: row.first_name.clone(),
             last_name: row.last_name.clone(),
             email: row.email.clone(),
+            created_at: row.created_at,
+            updated_at: row.updated_at,
         }
     }
 }
