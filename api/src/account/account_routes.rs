@@ -24,17 +24,6 @@ struct CreateAccountReq {
     password: String,
 }
 
-impl CreateAccountReq {
-    fn to(&self) -> InsertAccount {
-        InsertAccount {
-            email: self.email.clone(),
-            first_name: self.first_name.clone(),
-            last_name: self.last_name.clone(),
-            password_hash: self.password.clone(),
-        }
-    }
-}
-
 #[derive(Deserialize)]
 struct UpdateAccountReq {
     first_name: String,
@@ -86,13 +75,31 @@ impl AccountsRes {
     }
 }
 
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
+};
+
 async fn create_account(
     State(state): State<AccountRouteState>,
     Json(req): Json<CreateAccountReq>,
 ) -> Result<Json<AccountRes>, StatusCode> {
+    // TODO: how does lib handle changes to default params? poorly? backwards compat??
+    let argon2 = Argon2::default();
+    let salt = SaltString::generate(&mut OsRng);
+    let password_hash = argon2
+        .hash_password(req.password.as_bytes(), &salt)
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
+        .to_string();
+
     state
         .store
-        .create(req.to())
+        .create(InsertAccount {
+            first_name: req.first_name,
+            last_name: req.last_name,
+            email: req.email,
+            password_hash,
+        })
         .await
         .map(|row: AccountRow| AccountRes::from(&row))
         .map(axum::Json)
@@ -105,7 +112,7 @@ async fn get_account(
 ) -> Result<Json<AccountRes>, StatusCode> {
     state
         .store
-        .get(id)
+        .get_id(id)
         .await
         .map(|row: AccountRow| AccountRes::from(&row))
         .map(axum::Json)
@@ -151,14 +158,12 @@ async fn list_accounts(
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-pub fn get_account_router(store: PsqlAccountStore) -> Router {
+pub fn get_account_router(store: Arc<PsqlAccountStore>) -> Router {
     Router::new()
         .route("/", post(create_account))
         .route("/", get(list_accounts))
         .route("/{id}", get(get_account))
         .route("/{id}", put(update_account))
         .route("/{id}", delete(delete_account))
-        .with_state(AccountRouteState {
-            store: Arc::new(store),
-        })
+        .with_state(AccountRouteState { store })
 }

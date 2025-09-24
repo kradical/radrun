@@ -8,7 +8,6 @@ pub struct AccountRow {
     pub first_name: String,
     pub last_name: String,
     pub email: String,
-    // TODO: do the hashing
     pub password_hash: String,
 
     pub created_at: DateTime<Utc>,
@@ -88,9 +87,17 @@ impl PsqlAccountStore {
         .await?)
     }
 
-    pub async fn get(&self, id: i64) -> Result<AccountRow, Box<dyn Error>> {
+    pub async fn get_id(&self, id: i64) -> Result<AccountRow, Box<dyn Error>> {
         Ok(
             sqlx::query_as!(AccountRow, "SELECT * FROM account WHERE id = $1", id)
+                .fetch_one(&self.db)
+                .await?,
+        )
+    }
+
+    pub async fn get_email(&self, email: &str) -> Result<AccountRow, Box<dyn Error>> {
+        Ok(
+            sqlx::query_as!(AccountRow, "SELECT * FROM account WHERE email = $1", email)
                 .fetch_one(&self.db)
                 .await?,
         )
