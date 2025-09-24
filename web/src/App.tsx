@@ -9,7 +9,7 @@ const App = () => {
         type="button"
         onClick={() =>
           mutation.mutate({
-            email: "bloop",
+            email: "bloop123",
             first_name: "bloop",
             last_name: "bloop",
             password: "bloop2",

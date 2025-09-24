@@ -14,8 +14,15 @@ type Account = Omit<AccountRes, "created_at" | "updated_at"> & {
   updated_at: Date;
 };
 
+const contentTypeHeader = "Content-Type";
+const jsonContentType = "application/json";
+
 const createAccount = (req: CreateAccountReq): Promise<Account> =>
-  fetch("/api/account", { method: "POST", body: JSON.stringify(req) })
+  fetch("/api/account", {
+    method: "POST",
+    headers: { [contentTypeHeader]: jsonContentType },
+    body: JSON.stringify(req),
+  })
     .then(parseRes<AccountRes>)
     .then((res) => ({
       ...res,
