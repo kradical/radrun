@@ -1817,6 +1817,7 @@ dependencies = [
  "chrono",
  "thiserror",
  "ts-rs-macros",
+ "uuid",
 ]
 
 [[package]]

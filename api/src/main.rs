@@ -7,6 +7,7 @@ use axum::{
     routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
 use crate::account::{PsqlAccountStore, get_account_router};
@@ -40,13 +41,15 @@ struct AuthRouteState {
     store: Arc<PsqlAccountStore>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export, export_to = "auth.ts")]
 struct LoginReq {
     email: String,
     password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "auth.ts")]
 struct LoginRes {
     session_id: Uuid,
 }
