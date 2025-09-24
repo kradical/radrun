@@ -1,6 +1,7 @@
 use std::{error::Error, sync::Arc};
 
 use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
+use axum_extra::extract::{CookieJar, cookie::Cookie};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
@@ -41,8 +42,9 @@ use argon2::{
 
 async fn login(
     State(state): State<AuthRouteState>,
+    jar: CookieJar,
     Json(req): Json<LoginReq>,
-) -> Result<Json<LoginRes>, StatusCode> {
+) -> Result<(CookieJar, Json<LoginRes>), StatusCode> {
     let user_row = state
         .store
         .get_email(&req.email)
@@ -58,19 +60,22 @@ async fn login(
         return Err(StatusCode::UNAUTHORIZED);
     }
 
-    create_session(
+    let session_row = create_session(
         &state.db,
         InsertSession {
             user_id: user_row.id,
         },
     )
     .await
-    .map(|session_row| LoginRes {
+    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    let res_json = Json(LoginRes {
         session_id: session_row.id,
-    })
-    .map(Json)
-    .inspect_err(|e| println!("{:?}", e))
-    .map_err(|_| StatusCode::UNAUTHORIZED)
+    });
+
+    let cookie = Cookie::new("session_id", session_row.id.to_string());
+
+    return Ok((jar.add(cookie), res_json));
 }
 
 struct InsertSession {
