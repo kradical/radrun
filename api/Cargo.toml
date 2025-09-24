@@ -8,13 +8,7 @@ argon2 = "0.5.3"
 axum = { version = "0.8.4", features = ["macros", "json"] }
 chrono = { version = "0.4.42", features = ["serde"] }
 serde = "1.0.226"
-sqlx = { version = "0.8.6", features = [
-  "postgres",
-  "runtime-tokio",
-  "derive",
-  "macros",
-  "chrono",
-] }
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "derive", "macros", "chrono", "uuid"] }
 tokio = { version = "1.47.1", features = ["full"] }
 ts-rs = { version = "11.0.1", features = ["chrono-impl", "uuid-impl"] }
 uuid = { version = "1.18.1", features = ["serde", "v4"] }
