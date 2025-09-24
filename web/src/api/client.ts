@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import type { AccountRes, CreateAccountReq } from "./generated/account";
 
 const parseRes = <T>(res: Response): Promise<T> => {
@@ -22,4 +23,10 @@ const createAccount = (req: CreateAccountReq): Promise<Account> =>
       updated_at: new Date(res.updated_at),
     }));
 
-export type { Account };
+const useCreateAccount = () =>
+  useMutation({
+    mutationFn: createAccount,
+    onSuccess: (res) => console.log(res),
+  });
+
+export { type Account, useCreateAccount };

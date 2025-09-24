@@ -10,6 +10,7 @@ import ReactDOM from "react-dom/client";
 
 import "./styles.css";
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App.tsx";
 
 const rootRoute = createRootRoute({
@@ -39,12 +40,16 @@ declare module "@tanstack/react-router" {
   }
 }
 
+const queryClient = new QueryClient();
+
 const rootElement = document.getElementById("app");
 if (rootElement && !rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
   root.render(
     <StrictMode>
-      <RouterProvider router={router} />
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
     </StrictMode>,
   );
 }
