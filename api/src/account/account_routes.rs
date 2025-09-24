@@ -8,6 +8,7 @@ use axum::{
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::account::account_store::{AccountRow, InsertAccount, PsqlAccountStore, UpdateAccount};
 
@@ -16,7 +17,9 @@ struct AccountRouteState {
     store: Arc<PsqlAccountStore>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export, export_to = "account.ts")]
+
 struct CreateAccountReq {
     first_name: String,
     last_name: String,
@@ -24,7 +27,8 @@ struct CreateAccountReq {
     password: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export, export_to = "account.ts")]
 struct UpdateAccountReq {
     first_name: String,
     last_name: String,
@@ -39,7 +43,8 @@ impl UpdateAccountReq {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "account.ts")]
 struct AccountRes {
     id: i64,
     first_name: String,
@@ -62,7 +67,8 @@ impl AccountRes {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "account.ts")]
 struct AccountsRes {
     data: Vec<AccountRes>,
 }
