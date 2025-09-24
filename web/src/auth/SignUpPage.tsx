@@ -1,8 +1,8 @@
 import { useCreateAccount } from "@api/client";
-import type { CreateAccountReq } from "@api/generated/account";
+import type { AccountCreateReq } from "@api/generated/account";
 import { useForm } from "@tanstack/react-form";
 
-const defaultValues: CreateAccountReq = {
+const defaultValues: AccountCreateReq = {
   first_name: "",
   last_name: "",
   email: "",

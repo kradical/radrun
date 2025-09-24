@@ -20,7 +20,7 @@ struct AccountRouteState {
 #[derive(Deserialize, TS)]
 #[ts(export, export_to = "account.ts")]
 
-struct CreateAccountReq {
+struct AccountCreateReq {
     first_name: String,
     last_name: String,
     email: String,
@@ -29,12 +29,12 @@ struct CreateAccountReq {
 
 #[derive(Deserialize, TS)]
 #[ts(export, export_to = "account.ts")]
-struct UpdateAccountReq {
+struct AccountUpdateReq {
     first_name: String,
     last_name: String,
 }
 
-impl UpdateAccountReq {
+impl AccountUpdateReq {
     fn to(&self) -> UpdateAccount {
         UpdateAccount {
             first_name: self.first_name.clone(),
@@ -88,7 +88,7 @@ use argon2::{
 
 async fn create_account(
     State(state): State<AccountRouteState>,
-    Json(req): Json<CreateAccountReq>,
+    Json(req): Json<AccountCreateReq>,
 ) -> Result<Json<AccountRes>, StatusCode> {
     // TODO: how does lib handle changes to default params? poorly? backwards compat??
     let argon2 = Argon2::default();
@@ -141,7 +141,7 @@ async fn delete_account(
 async fn update_account(
     State(state): State<AccountRouteState>,
     Path(id): Path<i64>,
-    Json(req): Json<UpdateAccountReq>,
+    Json(req): Json<AccountUpdateReq>,
 ) -> Result<Json<AccountRes>, StatusCode> {
     state
         .store

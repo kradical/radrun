@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import type { AccountRes, CreateAccountReq } from "./generated/account";
+import type { AccountCreateReq, AccountRes } from "./generated/account";
 
 const parseRes = <T>(res: Response): Promise<T> => {
   if (res.status >= 400) {
@@ -17,7 +17,7 @@ type Account = Omit<AccountRes, "created_at" | "updated_at"> & {
 const contentTypeHeader = "Content-Type";
 const jsonContentType = "application/json";
 
-const createAccount = (req: CreateAccountReq): Promise<Account> =>
+const createAccount = (req: AccountCreateReq): Promise<Account> =>
   fetch("/api/account", {
     method: "POST",
     headers: { [contentTypeHeader]: jsonContentType },
