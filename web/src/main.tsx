@@ -12,6 +12,7 @@ import "./styles.css";
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App } from "./App.tsx";
+import { LoginPage } from "./auth/LoginPage.tsx";
 import { SignUpPage } from "./auth/SignUpPage.tsx";
 
 const rootRoute = createRootRoute({
@@ -24,13 +25,19 @@ const indexRoute = createRoute({
   component: App,
 });
 
-const loginRoute = createRoute({
+const signUpRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/sign-up",
   component: SignUpPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, loginRoute]);
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  component: LoginPage,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, signUpRoute, loginRoute]);
 
 const router = createRouter({
   routeTree,

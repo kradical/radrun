@@ -1,16 +1,14 @@
-import { useCreateAccount } from "@api/client";
-import type { AccountCreateReq } from "@api/generated/account";
+import { useLogin } from "@api/client";
+import type { LoginReq } from "@api/generated/auth";
 import { useForm } from "@tanstack/react-form";
 
-const defaultValues: AccountCreateReq = {
-  first_name: "",
-  last_name: "",
+const defaultValues: LoginReq = {
   email: "",
   password: "",
 };
 
-const SignUpPage = () => {
-  const mutation = useCreateAccount();
+const LoginPage = () => {
+  const mutation = useLogin();
   const form = useForm({
     defaultValues,
     onSubmit: async ({ value }) => mutation.mutateAsync(value),
@@ -18,7 +16,7 @@ const SignUpPage = () => {
 
   return (
     <div>
-      Sign Up
+      Login
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -69,48 +67,6 @@ const SignUpPage = () => {
             </div>
           )}
         </form.Field>
-        <form.Field
-          name="first_name"
-          validators={{
-            onChange: ({ value }) =>
-              !value ? "A first name is required" : undefined,
-          }}
-        >
-          {(field) => (
-            <div>
-              <label htmlFor={field.name}>First Name:</label>
-              <input
-                id={field.name}
-                required
-                name={field.name}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
-            </div>
-          )}
-        </form.Field>
-        <form.Field
-          name="last_name"
-          validators={{
-            onChange: ({ value }) =>
-              !value ? "A last name is required" : undefined,
-          }}
-        >
-          {(field) => (
-            <div>
-              <label htmlFor={field.name}>Last Name:</label>
-              <input
-                id={field.name}
-                required
-                name={field.name}
-                value={field.state.value}
-                onBlur={field.handleBlur}
-                onChange={(e) => field.handleChange(e.target.value)}
-              />
-            </div>
-          )}
-        </form.Field>
         <form.Subscribe
           selector={(state) => [state.canSubmit, state.isSubmitting]}
         >
@@ -125,4 +81,4 @@ const SignUpPage = () => {
   );
 };
 
-export { SignUpPage };
+export { LoginPage };
