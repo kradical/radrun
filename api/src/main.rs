@@ -20,10 +20,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let account_store = Arc::new(PsqlAccountStore::new(pool));
 
-    let app = Router::new()
+    let api = Router::new()
         .route("/", get(|| async { "Health Check" }))
         .nest("/auth", get_auth_router(account_store.clone()))
         .nest("/account", get_account_router(account_store.clone()));
+
+    let app = Router::new().nest("/api", api);
 
     let address = "0.0.0.0:3000";
     let listener = tokio::net::TcpListener::bind(address).await?;

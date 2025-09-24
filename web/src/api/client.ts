@@ -15,7 +15,7 @@ type Account = Omit<AccountRes, "created_at" | "updated_at"> & {
 };
 
 const createAccount = (req: CreateAccountReq): Promise<Account> =>
-  fetch("/account", { method: "POST", body: JSON.stringify(req) })
+  fetch("/api/account", { method: "POST", body: JSON.stringify(req) })
     .then(parseRes<AccountRes>)
     .then((res) => ({
       ...res,
