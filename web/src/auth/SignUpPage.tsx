@@ -1,8 +1,8 @@
-import { useCreateAccount } from "@api/client";
-import type { AccountCreateReq } from "@api/generated/account";
+import { useCreateUser } from "@api/client";
+import type { UserCreateReq } from "@api/generated/user";
 import { useForm } from "@tanstack/react-form";
 
-const defaultValues: AccountCreateReq = {
+const defaultValues: UserCreateReq = {
   first_name: "",
   last_name: "",
   email: "",
@@ -10,7 +10,7 @@ const defaultValues: AccountCreateReq = {
 };
 
 const SignUpPage = () => {
-  const mutation = useCreateAccount();
+  const mutation = useCreateUser();
   const form = useForm({
     defaultValues,
     onSubmit: async ({ value }) => mutation.mutateAsync(value),

@@ -10,17 +10,17 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::account::account_store::{AccountRow, InsertAccount, PsqlAccountStore, UpdateAccount};
+use crate::user::user_store::{PsqlUserStore, UserInsert, UserRow, UserUpdate};
 
 #[derive(Clone)]
-struct AccountRouteState {
-    store: Arc<PsqlAccountStore>,
+struct UserRouteState {
+    store: Arc<PsqlUserStore>,
 }
 
 #[derive(Deserialize, TS)]
-#[ts(export, export_to = "account.ts")]
+#[ts(export, export_to = "user.ts")]
 
-struct AccountCreateReq {
+struct UserCreateReq {
     first_name: String,
     last_name: String,
     email: String,
@@ -28,15 +28,15 @@ struct AccountCreateReq {
 }
 
 #[derive(Deserialize, TS)]
-#[ts(export, export_to = "account.ts")]
-struct AccountUpdateReq {
+#[ts(export, export_to = "user.ts")]
+struct UserUpdateReq {
     first_name: String,
     last_name: String,
 }
 
-impl AccountUpdateReq {
-    fn to(&self) -> UpdateAccount {
-        UpdateAccount {
+impl UserUpdateReq {
+    fn to(&self) -> UserUpdate {
+        UserUpdate {
             first_name: self.first_name.clone(),
             last_name: self.last_name.clone(),
         }
@@ -44,8 +44,8 @@ impl AccountUpdateReq {
 }
 
 #[derive(Serialize, TS)]
-#[ts(export, export_to = "account.ts")]
-struct AccountRes {
+#[ts(export, export_to = "user.ts")]
+struct UserRes {
     id: i64,
     first_name: String,
     last_name: String,
@@ -54,9 +54,9 @@ struct AccountRes {
     updated_at: DateTime<Utc>,
 }
 
-impl AccountRes {
-    fn from(row: &AccountRow) -> Self {
-        AccountRes {
+impl UserRes {
+    fn from(row: &UserRow) -> Self {
+        UserRes {
             id: row.id,
             first_name: row.first_name.clone(),
             last_name: row.last_name.clone(),
@@ -68,16 +68,16 @@ impl AccountRes {
 }
 
 #[derive(Serialize, TS)]
-#[ts(export, export_to = "account.ts")]
-struct AccountsRes {
-    data: Vec<AccountRes>,
+#[ts(export, export_to = "user.ts")]
+struct UsersRes {
+    data: Vec<UserRes>,
 }
 
-impl AccountsRes {
-    fn from(rows: &Vec<AccountRow>) -> Self {
-        let data = rows.iter().map(AccountRes::from).collect();
+impl UsersRes {
+    fn from(rows: &Vec<UserRow>) -> Self {
+        let data = rows.iter().map(UserRes::from).collect();
 
-        AccountsRes { data }
+        UsersRes { data }
     }
 }
 
@@ -86,10 +86,10 @@ use argon2::{
     password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
 };
 
-async fn create_account(
-    State(state): State<AccountRouteState>,
-    Json(req): Json<AccountCreateReq>,
-) -> Result<Json<AccountRes>, StatusCode> {
+async fn sign_up(
+    State(state): State<UserRouteState>,
+    Json(req): Json<UserCreateReq>,
+) -> Result<Json<UserRes>, StatusCode> {
     // TODO: how does lib handle changes to default params? poorly? backwards compat??
     let argon2 = Argon2::default();
     let salt = SaltString::generate(&mut OsRng);
@@ -100,76 +100,74 @@ async fn create_account(
 
     state
         .store
-        .create(InsertAccount {
+        .create(UserInsert {
             first_name: req.first_name,
             last_name: req.last_name,
             email: req.email,
             password_hash,
         })
         .await
-        .map(|row: AccountRow| AccountRes::from(&row))
+        .map(|row: UserRow| UserRes::from(&row))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-async fn get_account(
-    State(state): State<AccountRouteState>,
+async fn get_user(
+    State(state): State<UserRouteState>,
     Path(id): Path<i64>,
-) -> Result<Json<AccountRes>, StatusCode> {
+) -> Result<Json<UserRes>, StatusCode> {
     state
         .store
         .get_id(id)
         .await
-        .map(|row: AccountRow| AccountRes::from(&row))
+        .map(|row: UserRow| UserRes::from(&row))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-async fn delete_account(
-    State(state): State<AccountRouteState>,
+async fn delete_user(
+    State(state): State<UserRouteState>,
     Path(id): Path<i64>,
-) -> Result<Json<AccountRes>, StatusCode> {
+) -> Result<Json<UserRes>, StatusCode> {
     state
         .store
         .delete(id)
         .await
-        .map(|row: AccountRow| AccountRes::from(&row))
+        .map(|row: UserRow| UserRes::from(&row))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-async fn update_account(
-    State(state): State<AccountRouteState>,
+async fn update_user(
+    State(state): State<UserRouteState>,
     Path(id): Path<i64>,
-    Json(req): Json<AccountUpdateReq>,
-) -> Result<Json<AccountRes>, StatusCode> {
+    Json(req): Json<UserUpdateReq>,
+) -> Result<Json<UserRes>, StatusCode> {
     state
         .store
         .update(id, req.to())
         .await
-        .map(|row: AccountRow| AccountRes::from(&row))
+        .map(|row: UserRow| UserRes::from(&row))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-async fn list_accounts(
-    State(state): State<AccountRouteState>,
-) -> Result<Json<AccountsRes>, StatusCode> {
+async fn list_users(State(state): State<UserRouteState>) -> Result<Json<UsersRes>, StatusCode> {
     state
         .store
         .list()
         .await
-        .map(|rows: Vec<AccountRow>| AccountsRes::from(&rows))
+        .map(|rows: Vec<UserRow>| UsersRes::from(&rows))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-pub fn get_account_router(store: Arc<PsqlAccountStore>) -> Router {
+pub fn get_user_router(store: Arc<PsqlUserStore>) -> Router {
     Router::new()
-        .route("/", post(create_account))
-        .route("/", get(list_accounts))
-        .route("/{id}", get(get_account))
-        .route("/{id}", put(update_account))
-        .route("/{id}", delete(delete_account))
-        .with_state(AccountRouteState { store })
+        .route("/", post(sign_up))
+        .route("/", get(list_users))
+        .route("/{id}", get(get_user))
+        .route("/{id}", put(update_user))
+        .route("/{id}", delete(delete_user))
+        .with_state(UserRouteState { store })
 }

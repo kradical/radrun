@@ -7,12 +7,12 @@ use sqlx::{Pool, Postgres};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::account::PsqlAccountStore;
+use crate::user::PsqlUserStore;
 
 #[derive(Clone)]
 struct AuthRouteState {
     db: Pool<Postgres>,
-    store: Arc<PsqlAccountStore>,
+    store: Arc<PsqlUserStore>,
 }
 
 #[derive(Deserialize, TS)]
@@ -28,7 +28,7 @@ struct LoginRes {
     session_id: Uuid,
 }
 
-pub fn get_auth_router(store: Arc<PsqlAccountStore>, db: Pool<Postgres>) -> Router {
+pub fn get_auth_router(store: Arc<PsqlUserStore>, db: Pool<Postgres>) -> Router {
     Router::new()
         .route("/login", post(login))
         .with_state(AuthRouteState { db, store })
@@ -43,7 +43,7 @@ async fn login(
     State(state): State<AuthRouteState>,
     Json(req): Json<LoginReq>,
 ) -> Result<Json<LoginRes>, StatusCode> {
-    let account_row = state
+    let user_row = state
         .store
         .get_email(&req.email)
         .await
@@ -51,7 +51,7 @@ async fn login(
 
     // TODO: how does lib handle changes to default params? poorly? backwards compat??
     let argon2 = Argon2::default();
-    let verify_result = PasswordHash::new(&account_row.password_hash)
+    let verify_result = PasswordHash::new(&user_row.password_hash)
         .and_then(|hash| argon2.verify_password(req.password.as_bytes(), &hash));
 
     if verify_result.is_err() {
@@ -61,7 +61,7 @@ async fn login(
     create_session(
         &state.db,
         InsertSession {
-            account_id: account_row.id,
+            user_id: user_row.id,
         },
     )
     .await
@@ -74,12 +74,12 @@ async fn login(
 }
 
 struct InsertSession {
-    account_id: i64,
+    user_id: i64,
 }
 
 struct SessionRow {
     id: Uuid,
-    account_id: i64,
+    user_id: i64,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
 }
@@ -92,12 +92,12 @@ async fn create_session(
         SessionRow,
         "
             INSERT INTO session
-            (account_id)
+            (user_id)
             VALUES
             ($1)
             RETURNING *
         ",
-        params.account_id,
+        params.user_id,
     )
     .fetch_one(db)
     .await?)

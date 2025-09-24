@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import type { AccountCreateReq, AccountRes } from "./generated/account";
 import type { LoginReq, LoginRes } from "./generated/auth";
+import type { UserCreateReq, UserRes } from "./generated/user";
 
 // Shared
 
@@ -30,30 +30,30 @@ const useLogin = () =>
     onSuccess: (res) => console.log(res),
   });
 
-// Account
+// User
 
-type Account = Omit<AccountRes, "created_at" | "updated_at"> & {
+type User = Omit<UserRes, "created_at" | "updated_at"> & {
   created_at: Date;
   updated_at: Date;
 };
 
-const createAccount = (req: AccountCreateReq): Promise<Account> =>
-  fetch("/api/account", {
+const createUser = (req: UserCreateReq): Promise<User> =>
+  fetch("/api/user", {
     method: "POST",
     headers: { [contentTypeHeader]: jsonContentType },
     body: JSON.stringify(req),
   })
-    .then(parseRes<AccountRes>)
+    .then(parseRes<UserRes>)
     .then((res) => ({
       ...res,
       created_at: new Date(res.created_at),
       updated_at: new Date(res.updated_at),
     }));
 
-const useCreateAccount = () =>
+const useCreateUser = () =>
   useMutation({
-    mutationFn: createAccount,
+    mutationFn: createUser,
     onSuccess: (res) => console.log(res),
   });
 
-export { type Account, useCreateAccount, useLogin };
+export { type User, useCreateUser, useLogin };

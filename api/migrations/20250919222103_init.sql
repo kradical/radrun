@@ -1,6 +1,6 @@
 CREATE EXTENSION "uuid-ossp";
 
-CREATE TABLE account(
+CREATE TABLE rr_user(
   id BIGSERIAL PRIMARY KEY,
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE account(
   created_at timestamp with time zone NOT NULL DEFAULT NOW(),
   updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );
-CREATE UNIQUE INDEX account_email_unique ON account (email);
+CREATE UNIQUE INDEX rr_user_email_unique ON rr_user (email);
 
 CREATE TABLE activity(
   id BIGSERIAL PRIMARY KEY,
@@ -22,7 +22,7 @@ CREATE TABLE activity(
 
 CREATE TABLE session(
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  account_id BIGINT references account NOT NULL,
+  user_id BIGINT references rr_user NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT NOW(),
   updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );

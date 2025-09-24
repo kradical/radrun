@@ -2,11 +2,11 @@ use std::{error::Error, sync::Arc};
 
 use axum::{Router, routing::get};
 
-use crate::account::{PsqlAccountStore, get_account_router};
 use crate::auth::get_auth_router;
+use crate::user::{PsqlUserStore, get_user_router};
 
-mod account;
 mod auth;
+mod user;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -16,12 +16,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let pool = sqlx::postgres::PgPool::connect(url).await?;
     let pool2 = sqlx::postgres::PgPool::connect(url).await?;
 
-    let account_store = Arc::new(PsqlAccountStore::new(pool));
+    let user_store = Arc::new(PsqlUserStore::new(pool));
 
     let api = Router::new()
         .route("/", get(|| async { "Health Check" }))
-        .nest("/auth", get_auth_router(account_store.clone(), pool2))
-        .nest("/account", get_account_router(account_store.clone()));
+        .nest("/auth", get_auth_router(user_store.clone(), pool2))
+        .nest("/user", get_user_router(user_store.clone()));
 
     let app = Router::new().nest("/api", api);
 

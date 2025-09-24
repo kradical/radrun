@@ -3,7 +3,7 @@ use sqlx::{Pool, Postgres};
 use std::error::Error;
 
 #[derive(sqlx::FromRow)]
-pub struct AccountRow {
+pub struct UserRow {
     pub id: i64,
     pub first_name: String,
     pub last_name: String,
@@ -14,34 +14,34 @@ pub struct AccountRow {
     pub updated_at: DateTime<Utc>,
 }
 
-pub struct InsertAccount {
+pub struct UserInsert {
     pub first_name: String,
     pub last_name: String,
     pub email: String,
     pub password_hash: String,
 }
 
-pub struct UpdateAccount {
+pub struct UserUpdate {
     pub first_name: String,
     pub last_name: String,
 }
 
-pub struct PsqlAccountStore {
+pub struct PsqlUserStore {
     db: Pool<Postgres>,
 }
 
-impl PsqlAccountStore {
+impl PsqlUserStore {
     pub fn new(db: Pool<Postgres>) -> Self {
         Self { db }
     }
 }
 
-impl PsqlAccountStore {
-    pub async fn create(&self, params: InsertAccount) -> Result<AccountRow, Box<dyn Error>> {
+impl PsqlUserStore {
+    pub async fn create(&self, params: UserInsert) -> Result<UserRow, Box<dyn Error>> {
         Ok(sqlx::query_as!(
-            AccountRow,
+            UserRow,
             "
-            INSERT INTO account
+            INSERT INTO rr_user
             (first_name, last_name, email, password_hash, created_at, updated_at)
             VALUES
             ($1, $2, $3, $4, NOW(), NOW())
@@ -56,14 +56,10 @@ impl PsqlAccountStore {
         .await?)
     }
 
-    pub async fn update(
-        &self,
-        id: i64,
-        params: UpdateAccount,
-    ) -> Result<AccountRow, Box<dyn Error>> {
+    pub async fn update(&self, id: i64, params: UserUpdate) -> Result<UserRow, Box<dyn Error>> {
         Ok(sqlx::query_as!(
-            AccountRow,
-            "UPDATE account
+            UserRow,
+            "UPDATE rr_user
             SET first_name = $2, last_name = $3, updated_at = NOW()
             WHERE id = $1
             RETURNING *",
@@ -75,10 +71,10 @@ impl PsqlAccountStore {
         .await?)
     }
 
-    pub async fn delete(&self, id: i64) -> Result<AccountRow, Box<dyn Error>> {
+    pub async fn delete(&self, id: i64) -> Result<UserRow, Box<dyn Error>> {
         Ok(sqlx::query_as!(
-            AccountRow,
-            "DELETE FROM account
+            UserRow,
+            "DELETE FROM rr_user
             WHERE id = $1
             RETURNING *",
             id
@@ -87,24 +83,24 @@ impl PsqlAccountStore {
         .await?)
     }
 
-    pub async fn get_id(&self, id: i64) -> Result<AccountRow, Box<dyn Error>> {
+    pub async fn get_id(&self, id: i64) -> Result<UserRow, Box<dyn Error>> {
         Ok(
-            sqlx::query_as!(AccountRow, "SELECT * FROM account WHERE id = $1", id)
+            sqlx::query_as!(UserRow, "SELECT * FROM rr_user WHERE id = $1", id)
                 .fetch_one(&self.db)
                 .await?,
         )
     }
 
-    pub async fn get_email(&self, email: &str) -> Result<AccountRow, Box<dyn Error>> {
+    pub async fn get_email(&self, email: &str) -> Result<UserRow, Box<dyn Error>> {
         Ok(
-            sqlx::query_as!(AccountRow, "SELECT * FROM account WHERE email = $1", email)
+            sqlx::query_as!(UserRow, "SELECT * FROM rr_user WHERE email = $1", email)
                 .fetch_one(&self.db)
                 .await?,
         )
     }
 
-    pub async fn list(&self) -> Result<Vec<AccountRow>, Box<dyn Error>> {
-        Ok(sqlx::query_as!(AccountRow, "SELECT * FROM account")
+    pub async fn list(&self) -> Result<Vec<UserRow>, Box<dyn Error>> {
+        Ok(sqlx::query_as!(UserRow, "SELECT * FROM rr_user")
             .fetch_all(&self.db)
             .await?)
     }
