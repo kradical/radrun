@@ -1,12 +1,12 @@
 use std::{error::Error, sync::Arc};
 
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{Request, State},
     http::{Method, StatusCode},
     middleware::Next,
     response::Response,
-    routing::post,
+    routing::{get, post},
 };
 use axum_extra::extract::CookieJar;
 use chrono::{DateTime, Utc};
@@ -16,7 +16,7 @@ use sqlx::{Pool, Postgres};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::user::{PsqlUserStore, UserRow};
+use crate::user::{PsqlUserStore, UserRes, UserRow};
 
 #[derive(Clone)]
 pub struct AuthRouteState {
@@ -39,6 +39,7 @@ struct LoginRes {
 
 pub fn get_auth_router(store: Arc<PsqlUserStore>, db: Pool<Postgres>) -> Router {
     Router::new()
+        .route("/me", get(get_me))
         .route("/login", post(login))
         .with_state(AuthRouteState { db, store })
 }
@@ -91,6 +92,12 @@ pub async fn authenticated(
     req.extensions_mut().insert(current_user);
 
     Ok(next.run(req).await)
+}
+
+pub async fn get_me(
+    Extension(current_user): Extension<CurrentUser>,
+) -> Result<Json<UserRes>, StatusCode> {
+    Ok(Json(UserRes::from_row(&current_user)))
 }
 
 use argon2::{

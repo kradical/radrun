@@ -45,17 +45,17 @@ impl UserUpdateReq {
 
 #[derive(Serialize, TS)]
 #[ts(export, export_to = "user.ts")]
-struct UserRes {
-    id: i64,
-    first_name: String,
-    last_name: String,
-    email: String,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+pub struct UserRes {
+    pub id: i64,
+    pub first_name: String,
+    pub last_name: String,
+    pub email: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl UserRes {
-    fn from(row: &UserRow) -> Self {
+    pub fn from_row(row: &UserRow) -> Self {
         UserRes {
             id: row.id,
             first_name: row.first_name.clone(),
@@ -75,7 +75,7 @@ struct UsersRes {
 
 impl UsersRes {
     fn from(rows: &Vec<UserRow>) -> Self {
-        let data = rows.iter().map(UserRes::from).collect();
+        let data = rows.iter().map(UserRes::from_row).collect();
 
         UsersRes { data }
     }
@@ -107,7 +107,7 @@ async fn sign_up(
             password_hash,
         })
         .await
-        .map(|row: UserRow| UserRes::from(&row))
+        .map(|row: UserRow| UserRes::from_row(&row))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
@@ -120,7 +120,7 @@ async fn get_user(
         .store
         .get_id(id)
         .await
-        .map(|row: UserRow| UserRes::from(&row))
+        .map(|row: UserRow| UserRes::from_row(&row))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
@@ -133,7 +133,7 @@ async fn delete_user(
         .store
         .delete(id)
         .await
-        .map(|row: UserRow| UserRes::from(&row))
+        .map(|row: UserRow| UserRes::from_row(&row))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
@@ -147,7 +147,7 @@ async fn update_user(
         .store
         .update(id, req.to())
         .await
-        .map(|row: UserRow| UserRes::from(&row))
+        .map(|row: UserRow| UserRes::from_row(&row))
         .map(axum::Json)
         .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
 }
