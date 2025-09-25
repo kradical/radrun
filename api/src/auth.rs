@@ -151,6 +151,7 @@ struct InsertSession {
     user_id: i64,
 }
 
+#[allow(dead_code)]
 struct SessionRow {
     id: Uuid,
     user_id: i64,
