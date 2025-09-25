@@ -1,19 +1,27 @@
 use std::{error::Error, sync::Arc};
 
-use axum::{Json, Router, extract::State, http::StatusCode, routing::post};
-use axum_extra::extract::{CookieJar, cookie::Cookie};
+use axum::{
+    Json, Router,
+    extract::{Request, State},
+    http::{Method, StatusCode},
+    middleware::Next,
+    response::Response,
+    routing::post,
+};
+use axum_extra::extract::CookieJar;
 use chrono::{DateTime, Utc};
+use cookie::{Cookie, time::Duration};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::user::PsqlUserStore;
+use crate::user::{PsqlUserStore, UserRow};
 
 #[derive(Clone)]
-struct AuthRouteState {
-    db: Pool<Postgres>,
-    store: Arc<PsqlUserStore>,
+pub struct AuthRouteState {
+    pub db: Pool<Postgres>,
+    pub store: Arc<PsqlUserStore>,
 }
 
 #[derive(Deserialize, TS)]
@@ -33,6 +41,56 @@ pub fn get_auth_router(store: Arc<PsqlUserStore>, db: Pool<Postgres>) -> Router 
     Router::new()
         .route("/login", post(login))
         .with_state(AuthRouteState { db, store })
+}
+
+pub type CurrentUser = UserRow;
+
+struct UnAuthedRoute {
+    path: &'static str,
+    method: Method,
+}
+
+impl UnAuthedRoute {
+    fn matches(&self, req: &Request) -> bool {
+        self.path == req.uri().path() && self.method == req.method()
+    }
+}
+
+const LOGIN_ROUTE: UnAuthedRoute = UnAuthedRoute {
+    path: "/auth/login",
+    method: Method::POST,
+};
+
+const UNAUTHENTICATED_ROUTES: &[UnAuthedRoute] = &[LOGIN_ROUTE];
+
+fn matches_unauthenticated_route(req: &Request) -> bool {
+    UNAUTHENTICATED_ROUTES.iter().any(|r| r.matches(req))
+}
+
+pub async fn authenticated(
+    State(state): State<AuthRouteState>,
+    jar: CookieJar,
+    mut req: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    if matches_unauthenticated_route(&req) {
+        return Ok(next.run(req).await);
+    }
+
+    let session_id = jar
+        .get("session_id")
+        .map(Cookie::value)
+        .map(Uuid::parse_str)
+        .and_then(Result::ok)
+        .ok_or_else(|| StatusCode::UNAUTHORIZED)?;
+
+    let current_user = get_user_by_session_id(&state.db, session_id)
+        .await
+        .map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    req.extensions_mut().insert(current_user);
+
+    Ok(next.run(req).await)
 }
 
 use argon2::{
@@ -73,7 +131,11 @@ async fn login(
         session_id: session_row.id,
     });
 
-    let cookie = Cookie::new("session_id", session_row.id.to_string());
+    // TODO: .secure cookie in prod-like
+    let cookie = Cookie::build(("session_id", session_row.id.to_string()))
+        .path("/")
+        .http_only(true)
+        .max_age(Duration::days(7));
 
     return Ok((jar.add(cookie), res_json));
 }
@@ -103,6 +165,23 @@ async fn create_session(
             RETURNING *
         ",
         params.user_id,
+    )
+    .fetch_one(db)
+    .await?)
+}
+
+async fn get_user_by_session_id(
+    db: &Pool<Postgres>,
+    session_id: Uuid,
+) -> Result<UserRow, Box<dyn Error>> {
+    Ok(sqlx::query_as!(
+        UserRow,
+        "
+            SELECT rr_user.* FROM rr_user
+            JOIN session
+            ON rr_user.id = session.user_id
+            WHERE session.id = $1",
+        session_id
     )
     .fetch_one(db)
     .await?)

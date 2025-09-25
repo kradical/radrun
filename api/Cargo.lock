@@ -1218,6 +1218,7 @@ dependencies = [
  "axum",
  "axum-extra",
  "chrono",
+ "cookie",
  "serde",
  "sqlx",
  "tokio",

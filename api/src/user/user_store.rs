@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use sqlx::{Pool, Postgres};
 use std::error::Error;
 
-#[derive(sqlx::FromRow)]
+#[derive(sqlx::FromRow, Clone)]
 pub struct UserRow {
     pub id: i64,
     pub first_name: String,
