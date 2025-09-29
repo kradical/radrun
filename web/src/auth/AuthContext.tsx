@@ -23,15 +23,17 @@ const setLocalSessionExpires = (date: Date): void => {
 };
 
 interface AuthContextType {
-  isLoggedIn: boolean;
+  isAuthenticated: boolean;
   setSessionExpires: (d: Date) => void;
 }
 
-const initSessionExpires = getLocalSessionExpires();
-const initIsLoggedIn =
-  !!initSessionExpires && initSessionExpires.getTime() > Date.now();
+const isAuthenticated = () => {
+  const sessionExpires = getLocalSessionExpires();
+  return !!sessionExpires && sessionExpires.getTime() > Date.now();
+};
+
 const AuthContext = createContext<AuthContextType>({
-  isLoggedIn: initIsLoggedIn,
+  isAuthenticated: isAuthenticated(),
   setSessionExpires: setLocalSessionExpires,
 });
 
@@ -47,14 +49,19 @@ const AuthContextProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const value = {
-    isLoggedIn: !!sessionExpires && sessionExpires.getTime() > Date.now(),
+    isAuthenticated: !!sessionExpires && sessionExpires.getTime() > Date.now(),
     setSessionExpires,
   };
 
   return <AuthContext value={value}>{children}</AuthContext>;
 };
 
-const useIsLoggedIn = () => useContext(AuthContext).isLoggedIn;
+const useisAuthenticated = () => useContext(AuthContext).isAuthenticated;
 const useSetSessionExpires = () => useContext(AuthContext).setSessionExpires;
 
-export { AuthContextProvider, useIsLoggedIn, useSetSessionExpires };
+export {
+  AuthContextProvider,
+  useisAuthenticated,
+  useSetSessionExpires,
+  isAuthenticated,
+};

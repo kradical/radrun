@@ -1,6 +1,7 @@
 import { useLogin } from "@api/client";
 import type { LoginReq } from "@api/generated/auth";
 import { useForm } from "@tanstack/react-form";
+import { useRouter, useSearch } from "@tanstack/react-router";
 import { useSetSessionExpires } from "./AuthContext";
 
 const defaultValues: LoginReq = {
@@ -11,11 +12,18 @@ const defaultValues: LoginReq = {
 const LoginPage = () => {
   const setSessionExpires = useSetSessionExpires();
   const mutation = useLogin();
+
+  const router = useRouter();
+  const search = useSearch({
+    from: "/login",
+  });
+
   const form = useForm({
     defaultValues,
     onSubmit: async ({ value }) => {
-      await mutation.mutateAsync(value);
-      setSessionExpires(new Date());
+      const res = await mutation.mutateAsync(value);
+      setSessionExpires(res.expires_at);
+      router.history.push(search.redirect ?? "/");
     },
   });
 
