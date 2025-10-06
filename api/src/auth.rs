@@ -57,12 +57,17 @@ impl UnAuthedRoute {
     }
 }
 
-const LOGIN_ROUTE: UnAuthedRoute = UnAuthedRoute {
+static SIGN_UP_ROUTE: UnAuthedRoute = UnAuthedRoute {
+    path: "/user",
+    method: Method::POST,
+};
+
+static LOGIN_ROUTE: UnAuthedRoute = UnAuthedRoute {
     path: "/auth/login",
     method: Method::POST,
 };
 
-const UNAUTHENTICATED_ROUTES: &[UnAuthedRoute] = &[LOGIN_ROUTE];
+static UNAUTHENTICATED_ROUTES: &[&UnAuthedRoute] = &[&LOGIN_ROUTE, &SIGN_UP_ROUTE];
 
 fn matches_unauthenticated_route(req: &Request) -> bool {
     UNAUTHENTICATED_ROUTES.iter().any(|r| r.matches(req))
