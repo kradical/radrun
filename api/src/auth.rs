@@ -9,7 +9,7 @@ use axum::{
     routing::{get, post},
 };
 use axum_extra::extract::CookieJar;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Days, Utc};
 use cookie::{Cookie, time::Duration};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
@@ -35,6 +35,7 @@ struct LoginReq {
 #[ts(export, export_to = "auth.ts")]
 struct LoginRes {
     session_id: Uuid,
+    expires_at: DateTime<Utc>,
 }
 
 pub fn get_auth_router(store: Arc<PsqlUserStore>, db: Pool<Postgres>) -> Router {
@@ -139,15 +140,19 @@ async fn login(
     .await
     .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-    let res_json = Json(LoginRes {
-        session_id: session_row.id,
-    });
-
     // TODO: .secure cookie in prod-like
     let cookie = Cookie::build(("session_id", session_row.id.to_string()))
         .path("/")
         .http_only(true)
-        .max_age(Duration::days(7));
+        .max_age(Duration::days(7))
+        .build();
+
+    let res_json = Json(LoginRes {
+        session_id: session_row.id,
+        expires_at: Utc::now()
+            .checked_add_days(Days::new(7))
+            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?,
+    });
 
     return Ok((jar.add(cookie), res_json));
 }

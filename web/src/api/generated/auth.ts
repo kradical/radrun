@@ -2,4 +2,4 @@
 
 export type LoginReq = { email: string; password: string };
 
-export type LoginRes = { session_id: string };
+export type LoginRes = { session_id: string; expires_at: string };

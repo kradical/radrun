@@ -17,12 +17,21 @@ const jsonContentType = "application/json";
 
 // Auth
 
-const login = (req: LoginReq): Promise<LoginRes> =>
+type Login = Omit<LoginRes, "expires_at"> & {
+  expires_at: Date;
+};
+
+const login = (req: LoginReq): Promise<Login> =>
   fetch("/api/auth/login", {
     method: "POST",
     headers: { [contentTypeHeader]: jsonContentType },
     body: JSON.stringify(req),
-  }).then(parseRes<LoginRes>);
+  })
+    .then(parseRes<LoginRes>)
+    .then((res) => ({
+      ...res,
+      expires_at: new Date(res.expires_at),
+    }));
 
 const useLogin = () =>
   useMutation({

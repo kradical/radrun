@@ -10,7 +10,7 @@
     "start": "vite",
     "build": "vite build",
     "check": "biome check --error-on-warnings",
-    "generate:api": "./scripts/generate_api.sh",
+    "generate": "./scripts/generate_api.sh",
     "compile": "tsc"
   },
   "dependencies": {
