@@ -16,7 +16,7 @@ use sqlx::{Pool, Postgres};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::user::{PsqlUserStore, UserRes, UserRow};
+use crate::user::{PsqlUserStore, UserInsert, UserRes, UserRow};
 
 #[derive(Clone)]
 pub struct AuthRouteState {
@@ -42,6 +42,7 @@ pub fn get_auth_router(store: Arc<PsqlUserStore>, db: Pool<Postgres>) -> Router 
     Router::new()
         .route("/me", get(get_me))
         .route("/login", post(login))
+        .route("/sign-up", post(sign_up))
         .with_state(AuthRouteState { db, store })
 }
 
@@ -59,7 +60,7 @@ impl UnAuthedRoute {
 }
 
 static SIGN_UP_ROUTE: UnAuthedRoute = UnAuthedRoute {
-    path: "/user",
+    path: "/auth/sign-up",
     method: Method::POST,
 };
 
@@ -108,7 +109,7 @@ pub async fn get_me(
 
 use argon2::{
     Argon2,
-    password_hash::{PasswordHash, PasswordVerifier},
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
 };
 
 async fn login(
@@ -152,6 +153,79 @@ async fn login(
         expires_at: Utc::now()
             .checked_add_days(Days::new(7))
             .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?,
+    });
+
+    return Ok((jar.add(cookie), res_json));
+}
+
+#[derive(Deserialize, TS)]
+#[ts(export, export_to = "auth.ts")]
+
+struct SignUpReq {
+    first_name: String,
+    last_name: String,
+    email: String,
+    password: String,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "auth.ts")]
+
+struct SignUpRes {
+    user: UserRes,
+    session: LoginRes,
+}
+
+async fn sign_up(
+    State(state): State<AuthRouteState>,
+    jar: CookieJar,
+    Json(req): Json<SignUpReq>,
+) -> Result<(CookieJar, Json<SignUpRes>), StatusCode> {
+    // TODO: how does lib handle changes to default params? poorly? backwards compat??
+    let argon2 = Argon2::default();
+    let salt = SaltString::generate(&mut OsRng);
+    let password_hash = argon2
+        .hash_password(req.password.as_bytes(), &salt)
+        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
+        .to_string();
+
+    let user_row = state
+        .store
+        .create(UserInsert {
+            first_name: req.first_name,
+            last_name: req.last_name,
+            email: req.email,
+            password_hash,
+        })
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let session_row = create_session(
+        &state.db,
+        InsertSession {
+            user_id: user_row.id,
+        },
+    )
+    .await
+    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+
+    // TODO: .secure cookie in prod-like
+    let cookie = Cookie::build(("session_id", session_row.id.to_string()))
+        .path("/")
+        .http_only(true)
+        .max_age(Duration::days(7))
+        .build();
+
+    let session = LoginRes {
+        session_id: session_row.id,
+        expires_at: Utc::now()
+            .checked_add_days(Days::new(7))
+            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?,
+    };
+
+    let res_json = Json(SignUpRes {
+        user: UserRes::from_row(&user_row),
+        session,
     });
 
     return Ok((jar.add(cookie), res_json));

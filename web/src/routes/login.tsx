@@ -7,9 +7,9 @@ interface LoginSearch {
 
 export const Route = createFileRoute("/login")({
   component: RouteComponent,
-  validateSearch: (search: Record<string, unknown>): LoginSearch => {
+  validateSearch: (search?: Record<string, unknown>): LoginSearch => {
     return {
-      redirect: (search.redirect as string) || undefined,
+      redirect: (search?.redirect as string) || undefined,
     };
   },
 });

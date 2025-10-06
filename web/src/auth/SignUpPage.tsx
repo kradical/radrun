@@ -1,8 +1,10 @@
-import { useCreateUser } from "@api/client";
-import type { UserCreateReq } from "@api/generated/user";
+import { useSignUp } from "@api/client";
+import type { SignUpReq } from "@api/generated/auth";
 import { useForm } from "@tanstack/react-form";
+import { useRouter, useSearch } from "@tanstack/react-router";
+import { useSetSessionExpires } from "./AuthContext";
 
-const defaultValues: UserCreateReq = {
+const defaultValues: SignUpReq = {
   first_name: "",
   last_name: "",
   email: "",
@@ -10,10 +12,21 @@ const defaultValues: UserCreateReq = {
 };
 
 const SignUpPage = () => {
-  const mutation = useCreateUser();
+  const mutation = useSignUp();
+  const setSessionExpires = useSetSessionExpires();
+
+  const router = useRouter();
+  const search = useSearch({
+    from: "/sign-up",
+  });
+
   const form = useForm({
     defaultValues,
-    onSubmit: async ({ value }) => mutation.mutateAsync(value),
+    onSubmit: async ({ value }) => {
+      const res = await mutation.mutateAsync(value);
+      setSessionExpires(res.session.expires_at);
+      router.history.push(search.redirect ?? "/");
+    },
   });
 
   return (

@@ -4,27 +4,17 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
-    routing::{delete, get, post, put},
+    routing::{delete, get, put},
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::user::user_store::{PsqlUserStore, UserInsert, UserRow, UserUpdate};
+use crate::user::user_store::{PsqlUserStore, UserRow, UserUpdate};
 
 #[derive(Clone)]
 struct UserRouteState {
     store: Arc<PsqlUserStore>,
-}
-
-#[derive(Deserialize, TS)]
-#[ts(export, export_to = "user.ts")]
-
-struct UserCreateReq {
-    first_name: String,
-    last_name: String,
-    email: String,
-    password: String,
 }
 
 #[derive(Deserialize, TS)]
@@ -81,37 +71,6 @@ impl UsersRes {
     }
 }
 
-use argon2::{
-    Argon2,
-    password_hash::{PasswordHasher, SaltString, rand_core::OsRng},
-};
-
-async fn sign_up(
-    State(state): State<UserRouteState>,
-    Json(req): Json<UserCreateReq>,
-) -> Result<Json<UserRes>, StatusCode> {
-    // TODO: how does lib handle changes to default params? poorly? backwards compat??
-    let argon2 = Argon2::default();
-    let salt = SaltString::generate(&mut OsRng);
-    let password_hash = argon2
-        .hash_password(req.password.as_bytes(), &salt)
-        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
-        .to_string();
-
-    state
-        .store
-        .create(UserInsert {
-            first_name: req.first_name,
-            last_name: req.last_name,
-            email: req.email,
-            password_hash,
-        })
-        .await
-        .map(|row: UserRow| UserRes::from_row(&row))
-        .map(axum::Json)
-        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)
-}
-
 async fn get_user(
     State(state): State<UserRouteState>,
     Path(id): Path<i64>,
@@ -164,7 +123,6 @@ async fn list_users(State(state): State<UserRouteState>) -> Result<Json<UsersRes
 
 pub fn get_user_router(store: Arc<PsqlUserStore>) -> Router {
     Router::new()
-        .route("/", post(sign_up))
         .route("/", get(list_users))
         .route("/{id}", get(get_user))
         .route("/{id}", put(update_user))

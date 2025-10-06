@@ -1,6 +1,11 @@
-import { queryOptions, useMutation, useQuery } from "@tanstack/react-query";
-import type { LoginReq, LoginRes } from "./generated/auth";
-import type { UserCreateReq, UserRes } from "./generated/user";
+import { queryOptions, useMutation } from "@tanstack/react-query";
+import type {
+  LoginReq,
+  LoginRes,
+  SignUpReq,
+  SignUpRes,
+} from "./generated/auth";
+import type { UserRes } from "./generated/user";
 
 // Shared
 
@@ -17,11 +22,11 @@ const jsonContentType = "application/json";
 
 // Auth
 
-type Login = Omit<LoginRes, "expires_at"> & {
+type Session = Omit<LoginRes, "expires_at"> & {
   expires_at: Date;
 };
 
-const login = (req: LoginReq): Promise<Login> =>
+const login = (req: LoginReq): Promise<Session> =>
   fetch("/api/auth/login", {
     method: "POST",
     headers: { [contentTypeHeader]: jsonContentType },
@@ -39,31 +44,39 @@ const useLogin = () =>
     onSuccess: (res) => console.log(res),
   });
 
+type SignUp = {
+  user: User;
+  session: Session;
+};
+
+const signUp = (req: SignUpReq): Promise<SignUp> =>
+  fetch("/api/auth/sign-up", {
+    method: "POST",
+    headers: { [contentTypeHeader]: jsonContentType },
+    body: JSON.stringify(req),
+  })
+    .then(parseRes<SignUpRes>)
+    .then((res) => ({
+      ...res,
+      user: {
+        ...res.user,
+        created_at: new Date(res.user.created_at),
+        updated_at: new Date(res.user.updated_at),
+      },
+      session: {
+        ...res.session,
+        expires_at: new Date(res.session.expires_at),
+      },
+    }));
+
+const useSignUp = () => useMutation({ mutationFn: signUp });
+
 // User
 
 type User = Omit<UserRes, "created_at" | "updated_at"> & {
   created_at: Date;
   updated_at: Date;
 };
-
-const createUser = (req: UserCreateReq): Promise<User> =>
-  fetch("/api/user", {
-    method: "POST",
-    headers: { [contentTypeHeader]: jsonContentType },
-    body: JSON.stringify(req),
-  })
-    .then(parseRes<UserRes>)
-    .then((res) => ({
-      ...res,
-      created_at: new Date(res.created_at),
-      updated_at: new Date(res.updated_at),
-    }));
-
-const useCreateUser = () =>
-  useMutation({
-    mutationFn: createUser,
-    onSuccess: (res) => console.log(res),
-  });
 
 const getCurrentUser = (): Promise<User> =>
   fetch("/api/auth/me", {
@@ -83,4 +96,4 @@ const currentUserQueryOptions = queryOptions({
   queryFn: getCurrentUser,
 });
 
-export { type User, useCreateUser, useLogin, currentUserQueryOptions };
+export { type User, useSignUp, useLogin, currentUserQueryOptions };
