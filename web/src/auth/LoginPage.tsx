@@ -2,7 +2,7 @@ import { useLogin } from "@api/client";
 import type { LoginReq } from "@api/generated/auth";
 import { useForm } from "@tanstack/react-form";
 import { useRouter, useSearch } from "@tanstack/react-router";
-import { useSetSessionExpires } from "./AuthContext";
+import { useAuthContext } from "./AuthContext";
 
 const defaultValues: LoginReq = {
   email: "",
@@ -10,7 +10,7 @@ const defaultValues: LoginReq = {
 };
 
 const LoginPage = () => {
-  const setSessionExpires = useSetSessionExpires();
+  const { setSessionExpires } = useAuthContext();
   const mutation = useLogin();
 
   const router = useRouter();

@@ -18,13 +18,18 @@ const getLocalSessionExpires = (): Date | undefined => {
     : dateSessionExpires;
 };
 
-const setLocalSessionExpires = (date: Date): void => {
-  localStorage.setItem(SESSION_EXPIRES_AT_KEY, date.getTime().toString());
+const setLocalSessionExpires = (date: Date | undefined): void => {
+  if (date) {
+    localStorage.setItem(SESSION_EXPIRES_AT_KEY, date.getTime().toString());
+  } else {
+    localStorage.removeItem(SESSION_EXPIRES_AT_KEY);
+  }
 };
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  setSessionExpires: (d: Date) => void;
+  setSessionExpires: (d: Date | undefined) => void;
+  logout: () => void;
 }
 
 const isAuthenticated = () => {
@@ -35,6 +40,7 @@ const isAuthenticated = () => {
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: isAuthenticated(),
   setSessionExpires: setLocalSessionExpires,
+  logout: () => setLocalSessionExpires(undefined),
 });
 
 const AuthContextProvider = ({ children }: { children: ReactNode }) => {
@@ -43,25 +49,25 @@ const AuthContextProvider = ({ children }: { children: ReactNode }) => {
     getLocalSessionExpires(),
   );
 
-  const setSessionExpires = useCallback((next: Date) => {
+  const setSessionExpires = useCallback((next: Date | undefined) => {
     setLocalSessionExpires(next);
     _setSessionExpires(next);
   }, []);
 
+  const logout = useCallback(
+    () => setSessionExpires(undefined),
+    [setSessionExpires],
+  );
+
   const value = {
     isAuthenticated: !!sessionExpires && sessionExpires.getTime() > Date.now(),
     setSessionExpires,
+    logout,
   };
 
   return <AuthContext value={value}>{children}</AuthContext>;
 };
 
-const useisAuthenticated = () => useContext(AuthContext).isAuthenticated;
-const useSetSessionExpires = () => useContext(AuthContext).setSessionExpires;
+const useAuthContext = () => useContext(AuthContext);
 
-export {
-  AuthContextProvider,
-  useisAuthenticated,
-  useSetSessionExpires,
-  isAuthenticated,
-};
+export { AuthContextProvider, useAuthContext, isAuthenticated };

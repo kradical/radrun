@@ -42,6 +42,7 @@ pub fn get_auth_router(store: Arc<PsqlUserStore>, db: Pool<Postgres>) -> Router 
     Router::new()
         .route("/me", get(get_me))
         .route("/login", post(login))
+        .route("/logout", post(logout))
         .route("/sign-up", post(sign_up))
         .with_state(AuthRouteState { db, store })
 }
@@ -231,6 +232,40 @@ async fn sign_up(
     return Ok((jar.add(cookie), res_json));
 }
 
+#[derive(Serialize, TS)]
+#[ts(export, export_to = "auth.ts")]
+struct LogoutRes {
+    session_id: Uuid,
+}
+
+async fn logout(
+    State(state): State<AuthRouteState>,
+    jar: CookieJar,
+) -> Result<(CookieJar, Json<LogoutRes>), StatusCode> {
+    let session_id = jar
+        .get("session_id")
+        .map(Cookie::value)
+        .map(Uuid::parse_str)
+        .and_then(Result::ok)
+        .ok_or_else(|| StatusCode::BAD_REQUEST)?;
+
+    let session_row = delete_session(&state.db, session_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // TODO: .secure cookie in prod-like
+    let cookie = Cookie::build(("session_id", session_row.id.to_string()))
+        .path("/")
+        .http_only(true)
+        .build();
+
+    let res_json = Json(LogoutRes {
+        session_id: session_row.id,
+    });
+
+    return Ok((jar.remove(cookie), res_json));
+}
+
 struct InsertSession {
     user_id: i64,
 }
@@ -257,6 +292,23 @@ async fn create_session(
             RETURNING *
         ",
         params.user_id,
+    )
+    .fetch_one(db)
+    .await?)
+}
+
+async fn delete_session(
+    db: &Pool<Postgres>,
+    session_id: Uuid,
+) -> Result<SessionRow, Box<dyn Error>> {
+    Ok(sqlx::query_as!(
+        SessionRow,
+        "
+            DELETE FROM session
+            WHERE id = ($1)
+            RETURNING *
+        ",
+        session_id,
     )
     .fetch_one(db)
     .await?)

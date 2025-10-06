@@ -1,16 +1,20 @@
+import { useLogout } from "@api/client";
 import { useQueryErrorResetBoundary } from "@tanstack/react-query";
 import {
   createRootRoute,
   Link,
   Outlet,
+  useNavigate,
   useRouter,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { useEffect } from "react";
-import { useisAuthenticated } from "src/auth/AuthContext";
+import { useAuthContext } from "src/auth/AuthContext";
 
 const RootLayout = () => {
-  const isAuthenticated = useisAuthenticated();
+  const navigate = useNavigate();
+  const { isAuthenticated, logout } = useAuthContext();
+  const { mutateAsync } = useLogout();
 
   return (
     <>
@@ -26,6 +30,16 @@ const RootLayout = () => {
             <Link to="/profile" className="[&.active]:font-bold">
               Profile
             </Link>
+            <button
+              onClick={async () => {
+                await mutateAsync();
+                logout();
+                navigate({ to: "/" });
+              }}
+              type="button"
+            >
+              Logout
+            </button>
           </>
         )}
 

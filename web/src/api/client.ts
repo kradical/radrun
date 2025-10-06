@@ -2,6 +2,7 @@ import { queryOptions, useMutation } from "@tanstack/react-query";
 import type {
   LoginReq,
   LoginRes,
+  LogoutRes,
   SignUpReq,
   SignUpRes,
 } from "./generated/auth";
@@ -71,6 +72,14 @@ const signUp = (req: SignUpReq): Promise<SignUp> =>
 
 const useSignUp = () => useMutation({ mutationFn: signUp });
 
+const logout = (): Promise<LogoutRes> =>
+  fetch("/api/auth/logout", {
+    method: "POST",
+    headers: { [contentTypeHeader]: jsonContentType },
+  }).then(parseRes<LogoutRes>);
+
+const useLogout = () => useMutation({ mutationFn: logout });
+
 // User
 
 type User = Omit<UserRes, "created_at" | "updated_at"> & {
@@ -96,4 +105,4 @@ const currentUserQueryOptions = queryOptions({
   queryFn: getCurrentUser,
 });
 
-export { type User, useSignUp, useLogin, currentUserQueryOptions };
+export { type User, useSignUp, useLogin, useLogout, currentUserQueryOptions };

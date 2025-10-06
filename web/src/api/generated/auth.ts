@@ -5,6 +5,8 @@ export type LoginReq = { email: string; password: string };
 
 export type LoginRes = { session_id: string; expires_at: string };
 
+export type LogoutRes = { session_id: string };
+
 export type SignUpReq = {
   first_name: string;
   last_name: string;

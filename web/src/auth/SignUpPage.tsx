@@ -2,7 +2,7 @@ import { useSignUp } from "@api/client";
 import type { SignUpReq } from "@api/generated/auth";
 import { useForm } from "@tanstack/react-form";
 import { useRouter, useSearch } from "@tanstack/react-router";
-import { useSetSessionExpires } from "./AuthContext";
+import { useAuthContext } from "./AuthContext";
 
 const defaultValues: SignUpReq = {
   first_name: "",
@@ -13,7 +13,7 @@ const defaultValues: SignUpReq = {
 
 const SignUpPage = () => {
   const mutation = useSignUp();
-  const setSessionExpires = useSetSessionExpires();
+  const { setSessionExpires } = useAuthContext();
 
   const router = useRouter();
   const search = useSearch({
