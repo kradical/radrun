@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery } from "@tanstack/react-query";
 import type { LoginReq, LoginRes } from "./generated/auth";
 import type { UserCreateReq, UserRes } from "./generated/user";
 
@@ -65,4 +65,22 @@ const useCreateUser = () =>
     onSuccess: (res) => console.log(res),
   });
 
-export { type User, useCreateUser, useLogin };
+const getCurrentUser = (): Promise<User> =>
+  fetch("/api/auth/me", {
+    method: "GET",
+    headers: { [contentTypeHeader]: jsonContentType },
+  })
+    .then(parseRes<UserRes>)
+    .then((res) => ({
+      ...res,
+      created_at: new Date(res.created_at),
+      updated_at: new Date(res.updated_at),
+    }));
+
+// Not 100% sure how I want to go about exposing this vs. hooks / etc.
+const currentUserQueryOptions = queryOptions({
+  queryKey: ["user", "me"],
+  queryFn: getCurrentUser,
+});
+
+export { type User, useCreateUser, useLogin, currentUserQueryOptions };

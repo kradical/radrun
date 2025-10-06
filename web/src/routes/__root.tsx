@@ -1,5 +1,12 @@
-import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
+import { useQueryErrorResetBoundary } from "@tanstack/react-query";
+import {
+  createRootRoute,
+  Link,
+  Outlet,
+  useRouter,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { useEffect } from "react";
 import { useisAuthenticated } from "src/auth/AuthContext";
 
 const RootLayout = () => {
@@ -15,6 +22,9 @@ const RootLayout = () => {
             </Link>{" "}
             <Link to="/about" className="[&.active]:font-bold">
               About
+            </Link>{" "}
+            <Link to="/profile" className="[&.active]:font-bold">
+              Profile
             </Link>
           </>
         )}
@@ -37,4 +47,30 @@ const RootLayout = () => {
   );
 };
 
-export const Route = createRootRoute({ component: RootLayout });
+export const Route = createRootRoute({
+  component: RootLayout,
+  errorComponent: ({ error }) => {
+    const router = useRouter();
+    const queryErrorResetBoundary = useQueryErrorResetBoundary();
+
+    useEffect(() => {
+      // Reset the query error boundary
+      queryErrorResetBoundary.reset();
+    }, [queryErrorResetBoundary]);
+
+    return (
+      <div>
+        {error.message}
+        <button
+          onClick={() => {
+            // Invalidate the route to reload the loader, and reset any router error boundaries
+            router.invalidate();
+          }}
+          type="button"
+        >
+          retry
+        </button>
+      </div>
+    );
+  },
+});
