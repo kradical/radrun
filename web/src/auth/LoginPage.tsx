@@ -1,6 +1,7 @@
 import { useLogin } from "@api/client";
 import type { LoginReq } from "@api/generated/auth";
 import { useForm } from "@tanstack/react-form";
+import { useSetSessionExpires } from "./AuthContext";
 
 const defaultValues: LoginReq = {
   email: "",
@@ -8,10 +9,14 @@ const defaultValues: LoginReq = {
 };
 
 const LoginPage = () => {
+  const setSessionExpires = useSetSessionExpires();
   const mutation = useLogin();
   const form = useForm({
     defaultValues,
-    onSubmit: async ({ value }) => mutation.mutateAsync(value),
+    onSubmit: async ({ value }) => {
+      await mutation.mutateAsync(value);
+      setSessionExpires(new Date());
+    },
   });
 
   return (
