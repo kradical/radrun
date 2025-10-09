@@ -3,9 +3,13 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { isAuthenticated } from "src/auth/AuthContext";
 import { queryClient } from "src/queryClient";
+import { ProfilePage } from "src/user/ProfilePage";
 
 export const Route = createFileRoute("/profile")({
-  component: Profile,
+  component: () => {
+    const { data: user } = useSuspenseQuery(currentUserQueryOptions);
+    return <ProfilePage user={user} />;
+  },
   beforeLoad: () => {
     if (!isAuthenticated()) {
       throw redirect({
@@ -18,13 +22,3 @@ export const Route = createFileRoute("/profile")({
   },
   loader: () => queryClient.ensureQueryData(currentUserQueryOptions),
 });
-
-function Profile() {
-  const { data: user } = useSuspenseQuery(currentUserQueryOptions);
-
-  return (
-    <div>
-      Hello {user.first_name} {user.last_name} from Profile!
-    </div>
-  );
-}

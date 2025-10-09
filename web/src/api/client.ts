@@ -1,4 +1,8 @@
-import { queryOptions, useMutation } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type {
   LoginReq,
   LoginRes,
@@ -6,7 +10,7 @@ import type {
   SignUpReq,
   SignUpRes,
 } from "./generated/auth";
-import type { UserRes } from "./generated/user";
+import type { UserRes, UserUpdateReq } from "./generated/user";
 
 // Shared
 
@@ -105,4 +109,59 @@ const currentUserQueryOptions = queryOptions({
   queryFn: getCurrentUser,
 });
 
-export { type User, useSignUp, useLogin, useLogout, currentUserQueryOptions };
+interface UpdateUser {
+  id: number;
+  value: UserUpdateReq;
+}
+const updateUser = ({ id, value }: UpdateUser): Promise<User> =>
+  fetch(`/api/user/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(value),
+    headers: { [contentTypeHeader]: jsonContentType },
+  })
+    .then(parseRes<UserRes>)
+    .then((res) => ({
+      ...res,
+      created_at: new Date(res.created_at),
+      updated_at: new Date(res.updated_at),
+    }));
+
+const useUpdateUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateUser,
+    onSuccess: (data) => {
+      const currentUser = queryClient.getQueryData(
+        currentUserQueryOptions.queryKey,
+      );
+      if (currentUser?.id === data.id) {
+        queryClient.setQueryData(currentUserQueryOptions.queryKey, data);
+      }
+    },
+  });
+};
+
+const deleteUser = (id: number): Promise<User> =>
+  fetch(`/api/user/${id}`, {
+    method: "DELETE",
+    headers: { [contentTypeHeader]: jsonContentType },
+  })
+    .then(parseRes<UserRes>)
+    .then((res) => ({
+      ...res,
+      created_at: new Date(res.created_at),
+      updated_at: new Date(res.updated_at),
+    }));
+
+const useDeleteUser = () => useMutation({ mutationFn: deleteUser });
+
+export {
+  type User,
+  useSignUp,
+  useLogin,
+  useLogout,
+  useUpdateUser,
+  useDeleteUser,
+  currentUserQueryOptions,
+};
