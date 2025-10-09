@@ -36,6 +36,7 @@ impl UserUpdateReq {
 #[derive(Serialize, TS)]
 #[ts(export, export_to = "user.ts")]
 pub struct UserRes {
+    #[ts(type = "number")]
     pub id: i64,
     pub first_name: String,
     pub last_name: String,
