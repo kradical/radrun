@@ -1,4 +1,4 @@
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     Extension, Json, Router,
@@ -118,30 +118,6 @@ async fn login(
     jar: CookieJar,
     Json(req): Json<LoginReq>,
 ) -> Result<(CookieJar, Json<LoginRes>), StatusCode> {
-    let user_row = state
-        .store
-        .get_email(&req.email)
-        .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
-
-    // TODO: how does lib handle changes to default params? poorly? backwards compat??
-    let argon2 = Argon2::default();
-    let verify_result = PasswordHash::new(&user_row.password_hash)
-        .and_then(|hash| argon2.verify_password(req.password.as_bytes(), &hash));
-
-    if verify_result.is_err() {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
-    let session_row = create_session(
-        &state.db,
-        InsertSession {
-            user_id: user_row.id,
-        },
-    )
-    .await
-    .map_err(|_| StatusCode::UNAUTHORIZED)?;
-
     // TODO: .secure cookie in prod-like
     let cookie = Cookie::build(("session_id", session_row.id.to_string()))
         .path("/")
@@ -264,69 +240,4 @@ async fn logout(
     });
 
     return Ok((jar.remove(cookie), res_json));
-}
-
-struct InsertSession {
-    user_id: i64,
-}
-
-#[allow(dead_code)]
-struct SessionRow {
-    id: Uuid,
-    user_id: i64,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-}
-
-async fn create_session(
-    db: &Pool<Postgres>,
-    params: InsertSession,
-) -> Result<SessionRow, Box<dyn Error>> {
-    Ok(sqlx::query_as!(
-        SessionRow,
-        "
-            INSERT INTO session
-            (user_id)
-            VALUES
-            ($1)
-            RETURNING *
-        ",
-        params.user_id,
-    )
-    .fetch_one(db)
-    .await?)
-}
-
-async fn delete_session(
-    db: &Pool<Postgres>,
-    session_id: Uuid,
-) -> Result<SessionRow, Box<dyn Error>> {
-    Ok(sqlx::query_as!(
-        SessionRow,
-        "
-            DELETE FROM session
-            WHERE id = ($1)
-            RETURNING *
-        ",
-        session_id,
-    )
-    .fetch_one(db)
-    .await?)
-}
-
-async fn get_user_by_session_id(
-    db: &Pool<Postgres>,
-    session_id: Uuid,
-) -> Result<UserRow, Box<dyn Error>> {
-    Ok(sqlx::query_as!(
-        UserRow,
-        "
-            SELECT rr_user.* FROM rr_user
-            JOIN session
-            ON rr_user.id = session.user_id
-            WHERE session.id = $1",
-        session_id
-    )
-    .fetch_one(db)
-    .await?)
 }
