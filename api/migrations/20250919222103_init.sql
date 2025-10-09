@@ -22,7 +22,7 @@ CREATE TABLE activity(
 
 CREATE TABLE session(
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id BIGINT references rr_user NOT NULL,
+  user_id BIGINT REFERENCES rr_user NOT NULL ON DELETE CASCADE,
   created_at timestamp with time zone NOT NULL DEFAULT NOW(),
   updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );
