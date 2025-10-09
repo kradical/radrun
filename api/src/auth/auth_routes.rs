@@ -1,4 +1,4 @@
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 
 use axum::{
     Extension, Json, Router,
@@ -12,16 +12,15 @@ use axum_extra::extract::CookieJar;
 use chrono::{DateTime, Days, Utc};
 use cookie::{Cookie, time::Duration};
 use serde::{Deserialize, Serialize};
-use sqlx::{Pool, Postgres};
 use ts_rs::TS;
 use uuid::Uuid;
 
-use crate::user::{PsqlUserStore, UserInsert, UserRes, UserRow};
+use crate::auth::auth_repo::{PsqlAuthRepo, SignUpParams};
+use crate::user::{UserRes, UserRow};
 
 #[derive(Clone)]
 pub struct AuthRouteState {
-    pub db: Pool<Postgres>,
-    pub store: Arc<PsqlUserStore>,
+    pub auth_repo: Arc<PsqlAuthRepo>,
 }
 
 #[derive(Deserialize, TS)]
@@ -38,13 +37,13 @@ struct LoginRes {
     expires_at: DateTime<Utc>,
 }
 
-pub fn get_auth_router(store: Arc<PsqlUserStore>, db: Pool<Postgres>) -> Router {
+pub fn get_auth_router(auth_repo: Arc<PsqlAuthRepo>) -> Router {
     Router::new()
         .route("/me", get(get_me))
         .route("/login", post(login))
         .route("/logout", post(logout))
         .route("/sign-up", post(sign_up))
-        .with_state(AuthRouteState { db, store })
+        .with_state(AuthRouteState { auth_repo })
 }
 
 pub type CurrentUser = UserRow;
@@ -93,7 +92,9 @@ pub async fn authenticated(
         .and_then(Result::ok)
         .ok_or_else(|| StatusCode::UNAUTHORIZED)?;
 
-    let current_user = get_user_by_session_id(&state.db, session_id)
+    let current_user = state
+        .auth_repo
+        .get_user_by_session_id(session_id)
         .await
         .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
@@ -108,39 +109,16 @@ pub async fn get_me(
     Ok(Json(UserRes::from_row(&current_user)))
 }
 
-use argon2::{
-    Argon2,
-    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString, rand_core::OsRng},
-};
-
 async fn login(
     State(state): State<AuthRouteState>,
     jar: CookieJar,
     Json(req): Json<LoginReq>,
 ) -> Result<(CookieJar, Json<LoginRes>), StatusCode> {
-    let user_row = state
-        .store
-        .get_email(&req.email)
+    let session_row = state
+        .auth_repo
+        .login(&req.email, &req.password)
         .await
-        .map_err(|_| StatusCode::UNAUTHORIZED)?;
-
-    // TODO: how does lib handle changes to default params? poorly? backwards compat??
-    let argon2 = Argon2::default();
-    let verify_result = PasswordHash::new(&user_row.password_hash)
-        .and_then(|hash| argon2.verify_password(req.password.as_bytes(), &hash));
-
-    if verify_result.is_err() {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
-    let session_row = create_session(
-        &state.db,
-        InsertSession {
-            user_id: user_row.id,
-        },
-    )
-    .await
-    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+        .map_err(|_e| StatusCode::UNAUTHORIZED)?;
 
     // TODO: .secure cookie in prod-like
     let cookie = Cookie::build(("session_id", session_row.id.to_string()))
@@ -169,6 +147,17 @@ struct SignUpReq {
     password: String,
 }
 
+impl SignUpReq {
+    fn to_params(&self) -> SignUpParams {
+        return SignUpParams {
+            email: self.email.clone(),
+            first_name: self.first_name.clone(),
+            last_name: self.last_name.clone(),
+            password: self.password.clone(),
+        };
+    }
+}
+
 #[derive(Serialize, TS)]
 #[ts(export, export_to = "auth.ts")]
 
@@ -182,50 +171,28 @@ async fn sign_up(
     jar: CookieJar,
     Json(req): Json<SignUpReq>,
 ) -> Result<(CookieJar, Json<SignUpRes>), StatusCode> {
-    // TODO: how does lib handle changes to default params? poorly? backwards compat??
-    let argon2 = Argon2::default();
-    let salt = SaltString::generate(&mut OsRng);
-    let password_hash = argon2
-        .hash_password(req.password.as_bytes(), &salt)
-        .map_err(|_e| StatusCode::INTERNAL_SERVER_ERROR)?
-        .to_string();
-
-    let user_row = state
-        .store
-        .create(UserInsert {
-            first_name: req.first_name,
-            last_name: req.last_name,
-            email: req.email,
-            password_hash,
-        })
+    let result = state
+        .auth_repo
+        .sign_up(req.to_params())
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-    let session_row = create_session(
-        &state.db,
-        InsertSession {
-            user_id: user_row.id,
-        },
-    )
-    .await
-    .map_err(|_| StatusCode::UNAUTHORIZED)?;
+        .map_err(|_e| StatusCode::BAD_REQUEST)?;
 
     // TODO: .secure cookie in prod-like
-    let cookie = Cookie::build(("session_id", session_row.id.to_string()))
+    let cookie = Cookie::build(("session_id", result.session.id.to_string()))
         .path("/")
         .http_only(true)
         .max_age(Duration::days(7))
         .build();
 
     let session = LoginRes {
-        session_id: session_row.id,
+        session_id: result.session.id,
         expires_at: Utc::now()
             .checked_add_days(Days::new(7))
             .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?,
     };
 
     let res_json = Json(SignUpRes {
-        user: UserRes::from_row(&user_row),
+        user: UserRes::from_row(&result.user),
         session,
     });
 
@@ -249,7 +216,9 @@ async fn logout(
         .and_then(Result::ok)
         .ok_or_else(|| StatusCode::BAD_REQUEST)?;
 
-    let session_row = delete_session(&state.db, session_id)
+    let session_row = state
+        .auth_repo
+        .delete_session(session_id)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -264,69 +233,4 @@ async fn logout(
     });
 
     return Ok((jar.remove(cookie), res_json));
-}
-
-struct InsertSession {
-    user_id: i64,
-}
-
-#[allow(dead_code)]
-struct SessionRow {
-    id: Uuid,
-    user_id: i64,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-}
-
-async fn create_session(
-    db: &Pool<Postgres>,
-    params: InsertSession,
-) -> Result<SessionRow, Box<dyn Error>> {
-    Ok(sqlx::query_as!(
-        SessionRow,
-        "
-            INSERT INTO session
-            (user_id)
-            VALUES
-            ($1)
-            RETURNING *
-        ",
-        params.user_id,
-    )
-    .fetch_one(db)
-    .await?)
-}
-
-async fn delete_session(
-    db: &Pool<Postgres>,
-    session_id: Uuid,
-) -> Result<SessionRow, Box<dyn Error>> {
-    Ok(sqlx::query_as!(
-        SessionRow,
-        "
-            DELETE FROM session
-            WHERE id = ($1)
-            RETURNING *
-        ",
-        session_id,
-    )
-    .fetch_one(db)
-    .await?)
-}
-
-async fn get_user_by_session_id(
-    db: &Pool<Postgres>,
-    session_id: Uuid,
-) -> Result<UserRow, Box<dyn Error>> {
-    Ok(sqlx::query_as!(
-        UserRow,
-        "
-            SELECT rr_user.* FROM rr_user
-            JOIN session
-            ON rr_user.id = session.user_id
-            WHERE session.id = $1",
-        session_id
-    )
-    .fetch_one(db)
-    .await?)
 }
